@@ -51,19 +51,25 @@ interface EnvironmentConfig {
   ENCRYPTION_KEY: string;
   ENCRYPTION_ALGORITHM: string;
 
-  // AWS S3
-  AWS_ACCESS_KEY_ID: string;
-  AWS_SECRET_ACCESS_KEY: string;
-  AWS_S3_BUCKET: string;
-  AWS_REGION: string;
-  AWS_S3_KYC_PREFIX: string;
-  AWS_S3_EVIDENCE_PREFIX: string;
+  // Cloudinary
+  CLOUDINARY_CLOUD_NAME: string;
+  CLOUDINARY_API_KEY: string;
+  CLOUDINARY_API_SECRET: string;
 
-  // Email
-  SENDGRID_API_KEY: string;
+  // SMTP Email
+  SMTP_HOST: string;
+  SMTP_PORT: number;
+  SMTP_SECURE: boolean;
+  SMTP_USER: string;
+  SMTP_PASSWORD: string;
   FROM_EMAIL: string;
   FROM_NAME: string;
   SUPPORT_EMAIL: string;
+
+  // Paystack
+  PAYSTACK_SECRET_KEY: string;
+  PAYSTACK_PUBLIC_KEY: string;
+  PAYSTACK_WEBHOOK_SECRET: string;
 
   // SMS
   TWILIO_ACCOUNT_SID: string;
@@ -103,6 +109,7 @@ interface EnvironmentConfig {
 
   // URLs
   FRONTEND_URL: string;
+  FRONTEND_URL_PROD: string;
   BACKEND_URL: string;
 }
 
@@ -186,19 +193,25 @@ export const env: EnvironmentConfig = {
   ENCRYPTION_KEY: getEnv('ENCRYPTION_KEY'),
   ENCRYPTION_ALGORITHM: getEnv('ENCRYPTION_ALGORITHM', 'aes-256-gcm'),
 
-  // AWS S3
-  AWS_ACCESS_KEY_ID: getEnv('AWS_ACCESS_KEY_ID'),
-  AWS_SECRET_ACCESS_KEY: getEnv('AWS_SECRET_ACCESS_KEY'),
-  AWS_S3_BUCKET: getEnv('AWS_S3_BUCKET'),
-  AWS_REGION: getEnv('AWS_REGION', 'us-east-1'),
-  AWS_S3_KYC_PREFIX: getEnv('AWS_S3_KYC_PREFIX', 'kyc/'),
-  AWS_S3_EVIDENCE_PREFIX: getEnv('AWS_S3_EVIDENCE_PREFIX', 'evidence/'),
+  // Cloudinary
+  CLOUDINARY_CLOUD_NAME: getEnv('CLOUDINARY_CLOUD_NAME'),
+  CLOUDINARY_API_KEY: getEnv('CLOUDINARY_API_KEY'),
+  CLOUDINARY_API_SECRET: getEnv('CLOUDINARY_API_SECRET'),
 
-  // Email
-  SENDGRID_API_KEY: getEnv('SENDGRID_API_KEY'),
+  // SMTP Email
+  SMTP_HOST: getEnv('SMTP_HOST'),
+  SMTP_PORT: getEnvNumber('SMTP_PORT', '587'),
+  SMTP_SECURE: getEnvBool('SMTP_SECURE', 'false'),
+  SMTP_USER: getEnv('SMTP_USER'),
+  SMTP_PASSWORD: getEnv('SMTP_PASSWORD'),
   FROM_EMAIL: getEnv('FROM_EMAIL'),
   FROM_NAME: getEnv('FROM_NAME', 'Maya Global Pay'),
   SUPPORT_EMAIL: getEnv('SUPPORT_EMAIL'),
+
+  // Paystack
+  PAYSTACK_SECRET_KEY: getEnv('PAYSTACK_SECRET_KEY'),
+  PAYSTACK_PUBLIC_KEY: getEnv('PAYSTACK_PUBLIC_KEY'),
+  PAYSTACK_WEBHOOK_SECRET: getEnv('PAYSTACK_WEBHOOK_SECRET'),
 
   // SMS
   TWILIO_ACCOUNT_SID: getEnv('TWILIO_ACCOUNT_SID'),
@@ -238,6 +251,7 @@ export const env: EnvironmentConfig = {
 
   // URLs
   FRONTEND_URL: getEnv('FRONTEND_URL', 'http://localhost:3001'),
+  FRONTEND_URL_PROD: getEnv('FRONTEND_URL_PROD', 'https://www.mayaglobal.com'),
   BACKEND_URL: getEnv('BACKEND_URL', 'http://localhost:3000'),
 };
 

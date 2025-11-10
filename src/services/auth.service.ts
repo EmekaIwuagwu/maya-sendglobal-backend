@@ -5,6 +5,7 @@ import { env } from '../config/env';
 import { AppError } from '../utils/error-codes';
 import { JwtPayload, RefreshTokenPayload } from '../types';
 import { logger } from '../config/logger';
+import EmailService from './email.service';
 
 export class AuthService {
   /**
@@ -137,6 +138,16 @@ export class AuthService {
         });
 
         logger.info(`New user created: ${user.id}`);
+
+        // Send welcome email to new user
+        if (user.email) {
+          EmailService.sendWelcomeEmail(user.email, {
+            userName: user.fullName || 'there',
+            walletAddress: user.walletAddress,
+          }).catch((error) => {
+            logger.error(`Failed to send welcome email to ${user.email}:`, error);
+          });
+        }
       }
 
       return user;

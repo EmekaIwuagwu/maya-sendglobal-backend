@@ -1,57 +1,57 @@
-import axios from 'axios';
+import nodemailer from 'nodemailer';
 import { env } from '../config/env';
 import { logger } from '../config/logger';
 import { EmailOptions } from '../types';
 
 export class EmailService {
-  private static readonly SENDGRID_API_URL = 'https://api.sendgrid.com/v3/mail/send';
-  private static readonly FROM_EMAIL = env.FROM_EMAIL;
-  private static readonly FROM_NAME = env.FROM_NAME;
+  private static transporter = nodemailer.createTransport({
+    host: env.SMTP_HOST,
+    port: env.SMTP_PORT,
+    secure: env.SMTP_SECURE, // true for 465, false for other ports
+    auth: {
+      user: env.SMTP_USER,
+      pass: env.SMTP_PASSWORD,
+    },
+  });
+
+  private static FROM_EMAIL = env.FROM_EMAIL;
+  private static FROM_NAME = env.FROM_NAME;
 
   /**
-   * Send email using SendGrid
+   * Send email using SMTP
    */
   static async sendEmail(options: EmailOptions): Promise<boolean> {
     try {
       const recipients = Array.isArray(options.to) ? options.to : [options.to];
 
-      const payload = {
-        personalizations: [
-          {
-            to: recipients.map((email) => ({ email })),
-            subject: options.subject,
-            ...(options.templateId && options.templateData
-              ? { dynamic_template_data: options.templateData }
-              : {}),
-          },
-        ],
-        from: {
-          email: this.FROM_EMAIL,
-          name: this.FROM_NAME,
-        },
-        ...(options.templateId
-          ? { template_id: options.templateId }
-          : {
-              content: [
-                {
-                  type: options.html ? 'text/html' : 'text/plain',
-                  value: options.html || options.text || '',
-                },
-              ],
-            }),
+      const mailOptions = {
+        from: `"${this.FROM_NAME}" <${this.FROM_EMAIL}>`,
+        to: recipients.join(', '),
+        subject: options.subject,
+        text: options.text,
+        html: options.html,
       };
 
-      await axios.post(this.SENDGRID_API_URL, payload, {
-        headers: {
-          Authorization: `Bearer ${env.SENDGRID_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      await this.transporter.sendMail(mailOptions);
 
       logger.info(`Email sent to ${recipients.join(', ')}: ${options.subject}`);
       return true;
     } catch (error) {
       logger.error('Error sending email:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Verify SMTP connection
+   */
+  static async verifyConnection(): Promise<boolean> {
+    try {
+      await this.transporter.verify();
+      logger.info('SMTP connection verified successfully');
+      return true;
+    } catch (error) {
+      logger.error('SMTP connection failed:', error);
       return false;
     }
   }
