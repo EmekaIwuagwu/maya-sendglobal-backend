@@ -6,6 +6,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 import { env } from '../config/env';
 import BlockchainService from './blockchain.service';
 import CircleService from './circle.service';
+import EmailService from './email.service';
 
 export class TransactionService {
   /**
@@ -114,6 +115,18 @@ export class TransactionService {
 
       logger.info(`Transaction created: ${transaction.id}`);
 
+      // Send email notification if sending to email address
+      if (data.recipientEmail) {
+        EmailService.sendEmailPaymentNotification(data.recipientEmail, {
+          senderName: sender.fullName || sender.walletAddress,
+          amount: decimalToString(amount),
+          claimUrl: `${env.FRONTEND_URL}/claim/${transaction.referenceNumber}`,
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        }).catch((error) => {
+          logger.error(`Failed to send email payment notification to ${data.recipientEmail}:`, error);
+        });
+      }
+
       return transaction;
     } catch (error) {
       logger.error('Error creating transaction:', error);
@@ -183,14 +196,34 @@ export class TransactionService {
       logger.error('Error processing transaction:', error);
 
       // Update transaction status to failed
-      await prisma.transaction.update({
+      const failedTransaction = await prisma.transaction.update({
         where: { id: transactionId },
         data: {
           status: 'failed',
           failedAt: new Date(),
           failureReason: error instanceof Error ? error.message : 'Unknown error',
         },
+        include: {
+          sender: {
+            select: {
+              email: true,
+              fullName: true,
+            },
+          },
+        },
       });
+
+      // Send failure notification to sender
+      if (failedTransaction.sender?.email) {
+        EmailService.sendTransactionFailed(failedTransaction.sender.email, {
+          userName: failedTransaction.sender.fullName || 'there',
+          amount: decimalToString(failedTransaction.amountUsdc),
+          reason: failedTransaction.failureReason || 'Unknown error',
+          referenceNumber: failedTransaction.referenceNumber,
+        }).catch((emailError) => {
+          logger.error(`Failed to send failure email to ${failedTransaction.sender?.email}:`, emailError);
+        });
+      }
 
       throw error;
     }
@@ -205,6 +238,24 @@ export class TransactionService {
         // Get transaction
         const txn = await tx.transaction.findUnique({
           where: { id: transactionId },
+          include: {
+            sender: {
+              select: {
+                id: true,
+                email: true,
+                fullName: true,
+                walletAddress: true,
+              },
+            },
+            recipient: {
+              select: {
+                id: true,
+                email: true,
+                fullName: true,
+                walletAddress: true,
+              },
+            },
+          },
         });
 
         if (!txn) {
@@ -229,10 +280,56 @@ export class TransactionService {
             status: 'completed',
             completedAt: new Date(),
           },
+          include: {
+            sender: {
+              select: {
+                id: true,
+                email: true,
+                fullName: true,
+                walletAddress: true,
+              },
+            },
+            recipient: {
+              select: {
+                id: true,
+                email: true,
+                fullName: true,
+                walletAddress: true,
+              },
+            },
+          },
         });
       });
 
       logger.info(`Transaction completed: ${transactionId}`);
+
+      // Send confirmation email to sender
+      if (transaction.sender?.email) {
+        EmailService.sendTransactionConfirmation(transaction.sender.email, {
+          userName: transaction.sender.fullName || 'there',
+          amount: decimalToString(transaction.amountUsdc),
+          recipient: transaction.recipient?.fullName || transaction.recipientWallet || transaction.recipientEmail || 'Unknown',
+          transactionHash: transactionHash,
+          referenceNumber: transaction.referenceNumber,
+          transactionUrl: `${env.FRONTEND_URL}/transactions/${transaction.id}`,
+        }).catch((error) => {
+          logger.error(`Failed to send confirmation email to sender ${transaction.sender?.email}:`, error);
+        });
+      }
+
+      // Send receipt email to recipient if they have an account
+      if (transaction.recipient?.email) {
+        EmailService.sendTransactionReceipt(transaction.recipient.email, {
+          userName: transaction.recipient.fullName || 'there',
+          amount: decimalToString(transaction.amountUsdc),
+          sender: transaction.sender?.fullName || transaction.senderWallet || 'Unknown',
+          transactionHash: transactionHash,
+          referenceNumber: transaction.referenceNumber,
+          transactionUrl: `${env.FRONTEND_URL}/transactions/${transaction.id}`,
+        }).catch((error) => {
+          logger.error(`Failed to send receipt email to recipient ${transaction.recipient?.email}:`, error);
+        });
+      }
 
       return transaction;
     } catch (error) {
